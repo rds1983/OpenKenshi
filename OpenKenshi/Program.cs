@@ -1,4 +1,8 @@
-﻿namespace OpenKenshi
+﻿using System;
+using System.IO;
+using System.Text;
+
+namespace OpenKenshi
 {
 	class Program
 	{
@@ -12,10 +16,19 @@
 				}
 			}
 
-/*			using (var game = new SampleGame())
+			var loader = new MeshLoader();
+			//			using (var stream = File.OpenRead(@"D:\SteamLibrary\steamapps\common\Kenshi\data\meshes\katana1.mesh"))
+			using (var stream = File.OpenRead(@"D:\Temp\Sinbad\Sinbad.mesh"))
 			{
-				game.Run();
-			}*/
+				var model = loader.Load(stream);
+
+				var k = 5;
+			}
+
+			/*			using (var game = new SampleGame())
+						{
+							game.Run();
+						}*/
 		}
 	}
 }

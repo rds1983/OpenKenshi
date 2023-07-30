@@ -3,26 +3,49 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.1.32328.378
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenKenshi", "OpenKenshi\OpenKenshi.csproj", "{FAC7594C-4E6E-41F9-8B28-0CE545F6F510}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "OpenKenshi", "OpenKenshi\OpenKenshi.csproj", "{FAC7594C-4E6E-41F9-8B28-0CE545F6F510}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FNA.Core", "..\FNA\FNA.Core.csproj", "{BCE98AE2-A521-4624-AD3A-C7DAD4847F0E}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Nursia.FNA.Core", "..\Nursia\src\Nursia\Nursia.FNA.Core.csproj", "{419A16B9-6D71-4292-8142-DAE53A5E3DDE}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
+		Debug|x64 = Debug|x64
 		Release|Any CPU = Release|Any CPU
+		Release|x64 = Release|x64
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{FAC7594C-4E6E-41F9-8B28-0CE545F6F510}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{FAC7594C-4E6E-41F9-8B28-0CE545F6F510}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FAC7594C-4E6E-41F9-8B28-0CE545F6F510}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{FAC7594C-4E6E-41F9-8B28-0CE545F6F510}.Debug|x64.Build.0 = Debug|Any CPU
 		{FAC7594C-4E6E-41F9-8B28-0CE545F6F510}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FAC7594C-4E6E-41F9-8B28-0CE545F6F510}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FAC7594C-4E6E-41F9-8B28-0CE545F6F510}.Release|x64.ActiveCfg = Release|Any CPU
+		{FAC7594C-4E6E-41F9-8B28-0CE545F6F510}.Release|x64.Build.0 = Release|Any CPU
+		{BCE98AE2-A521-4624-AD3A-C7DAD4847F0E}.Debug|Any CPU.ActiveCfg = Debug|x64
+		{BCE98AE2-A521-4624-AD3A-C7DAD4847F0E}.Debug|Any CPU.Build.0 = Debug|x64
+		{BCE98AE2-A521-4624-AD3A-C7DAD4847F0E}.Debug|x64.ActiveCfg = Debug|x64
+		{BCE98AE2-A521-4624-AD3A-C7DAD4847F0E}.Debug|x64.Build.0 = Debug|x64
+		{BCE98AE2-A521-4624-AD3A-C7DAD4847F0E}.Release|Any CPU.ActiveCfg = Release|x64
+		{BCE98AE2-A521-4624-AD3A-C7DAD4847F0E}.Release|Any CPU.Build.0 = Release|x64
+		{BCE98AE2-A521-4624-AD3A-C7DAD4847F0E}.Release|x64.ActiveCfg = Release|x64
+		{BCE98AE2-A521-4624-AD3A-C7DAD4847F0E}.Release|x64.Build.0 = Release|x64
+		{419A16B9-6D71-4292-8142-DAE53A5E3DDE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{419A16B9-6D71-4292-8142-DAE53A5E3DDE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{419A16B9-6D71-4292-8142-DAE53A5E3DDE}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{419A16B9-6D71-4292-8142-DAE53A5E3DDE}.Debug|x64.Build.0 = Debug|Any CPU
+		{419A16B9-6D71-4292-8142-DAE53A5E3DDE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{419A16B9-6D71-4292-8142-DAE53A5E3DDE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{419A16B9-6D71-4292-8142-DAE53A5E3DDE}.Release|x64.ActiveCfg = Release|Any CPU
+		{419A16B9-6D71-4292-8142-DAE53A5E3DDE}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {35ACDF4E-2CE2-46B1-A19F-35DC131069A1}
-	EndGlobalSection
-	GlobalSection(MonoDevelopProperties) = preSolution
-		StartupItem = Myra.UIEditor\Myra.UIEditor.csproj
 	EndGlobalSection
 EndGlobal
