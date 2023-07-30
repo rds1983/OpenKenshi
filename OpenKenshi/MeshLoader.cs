@@ -5,6 +5,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using Microsoft.Xna.Framework.Graphics;
+using Nursia;
 using Nursia.Graphics3D.Modelling;
 
 namespace OpenKenshi
@@ -31,25 +32,6 @@ namespace OpenKenshi
 				this.id = id;
 				this.length = length;
 			}
-		}
-
-		struct VertexElementInfo
-		{
-			public int source;
-			public int offset;
-			public VertexElementFormat format;
-			public VertexElementUsage usage;
-			public int index;
-
-			public VertexElementInfo(int source, int offset,  VertexElementFormat format, VertexElementUsage usage, int index)
-			{
-				this.source = source;
-				this.offset = offset;
-				this.format = format;
-				this.usage = usage;
-				this.index = index;
-			}
-
 		}
 
 		private Stream stream;
@@ -90,13 +72,7 @@ namespace OpenKenshi
 
 		private ChunkInfo ReadChunk()
 		{
-			ChunkInfo chunkInfo = new ChunkInfo
-			{
-				id = reader.ReadUInt16(),
-				length = reader.ReadInt32()
-			};
-
-			return chunkInfo;
+			return new ChunkInfo(reader.ReadUInt16(), reader.ReadInt32());
 		}
 
 		private void ProcessChunks(ushort[] types, Action<ushort> chunkProcessor)
@@ -118,7 +94,7 @@ namespace OpenKenshi
 			}
 		}
 
-		private VertexElement ReadVertexDeclarationElement()
+		private VertexElementInfo ReadVertexDeclarationElement()
 		{
 			var source = reader.ReadUInt16();
 			var tmp = reader.ReadUInt16();
@@ -127,7 +103,8 @@ namespace OpenKenshi
 			if (tmp == 4 || tmp == 11)
 			{
 				format = VertexElementFormat.Byte4;
-			} else
+			}
+			else
 			{
 				format = tmp.ToVertexElementFormat();
 			}
@@ -138,14 +115,14 @@ namespace OpenKenshi
 			var offset = reader.ReadUInt16();
 			var index = reader.ReadUInt16();
 
-			return new VertexElement(offset, format, usage, index);
+			return new VertexElementInfo(source, offset, format, usage, index);
 		}
 
-		private VertexDeclaration ReadVertexDeclaration()
+		private VertexElementInfo[] ReadVertexDeclaration()
 		{
-			var list = new List<VertexElement>();
+			var list = new List<VertexElementInfo>();
 			ProcessChunks(new[] { M_GEOMETRY_VERTEX_ELEMENT }, id => list.Add(ReadVertexDeclarationElement()));
-			return new VertexDeclaration(list.ToArray());
+			return list.ToArray();
 		}
 
 		private VertexBuffer ReadGeometry()
@@ -153,13 +130,14 @@ namespace OpenKenshi
 			var vertexCount = reader.ReadInt32();
 			VertexBuffer result = null;
 
-			VertexDeclaration vd;
+			VertexElementInfo[] elements = null;
 			ProcessChunks(new ushort[] { M_GEOMETRY_VERTEX_DECLARATION, M_GEOMETRY_VERTEX_BUFFER },
 				id =>
 				{
-					switch(id){
+					switch (id)
+					{
 						case M_GEOMETRY_VERTEX_DECLARATION:
-							vd = ReadVertexDeclaration();
+							elements = ReadVertexDeclaration();
 							break;
 						case M_GEOMETRY_VERTEX_BUFFER:
 							var bindIndex = reader.ReadUInt16();
@@ -170,6 +148,17 @@ namespace OpenKenshi
 							{
 								throw new Exception("Can't find vertex buffer data area");
 							}
+
+							if (elements.CalculateVertexSize(bindIndex) != vertexSize)
+							{
+								throw new Exception("Buffer vertex size does not agree with vertex declaration");
+							}
+
+							var vd = elements.CreateVertexDeclaration(bindIndex);
+							var vertexBuffer = new VertexBuffer(Nrs.GraphicsDevice,	vd,	vertexCount, BufferUsage.None);
+
+							var data = reader.ReadBytes(vertexCount * vd.VertexStride);
+							vertexBuffer.SetData(data);
 							break;
 					}
 				}
