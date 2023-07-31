@@ -41,6 +41,25 @@ namespace OpenKenshi
 			throw new Exception($"Format {format} isnt supported");
 		}
 
+		public static PrimitiveType ToPrimitiveType(this ushort type)
+		{
+			switch(type)
+			{
+				case 1:
+					return PrimitiveType.PointListEXT;
+				case 2:
+					return PrimitiveType.LineList;
+				case 3:
+					return PrimitiveType.LineStrip;
+				case 4:
+					return PrimitiveType.TriangleList;
+				case 5:
+					return PrimitiveType.TriangleStrip;
+			}
+
+			throw new Exception($"Type {type} isnt supported");
+		}
+
 		public static int GetSize(this VertexElementFormat elementFormat)
 		{
 			switch (elementFormat)

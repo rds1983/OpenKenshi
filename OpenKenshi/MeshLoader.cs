@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using Microsoft.Xna.Framework.Graphics;
@@ -12,15 +11,19 @@ namespace OpenKenshi
 {
 	public class MeshLoader
 	{
-		const ushort HEADER_STREAM_ID = 0x1000;
 		const ushort OTHER_ENDIAN_HEADER_STREAM_ID = 0x0010;
+		const ushort HEADER_STREAM_ID = 0x1000;
 		const ushort M_MESH = 0x3000;
-		const ushort M_GEOMETRY = 0x5000;
 		const ushort M_SUBMESH = 0x4000;
+		const ushort M_SUBMESH_OPERATION = 0x4010;
+		const ushort M_SUBMESH_BONE_ASSIGNMENT = 0x4100;
+		const ushort M_SUBMESH_TEXTURE_ALIAS = 0x4200;
+		const ushort M_GEOMETRY = 0x5000;
 		const ushort M_GEOMETRY_VERTEX_DECLARATION = 0x5100;
 		const ushort M_GEOMETRY_VERTEX_ELEMENT = 0x5110;
 		const ushort M_GEOMETRY_VERTEX_BUFFER = 0x5200;
 		const ushort M_GEOMETRY_VERTEX_BUFFER_DATA = 0x5210;
+		const ushort M_MESH_SKELETON_LINK = 0x6000;
 
 		struct ChunkInfo
 		{
@@ -75,18 +78,16 @@ namespace OpenKenshi
 			return new ChunkInfo(reader.ReadUInt16(), reader.ReadInt32());
 		}
 
-		private void ProcessChunks(ushort[] types, Action<ushort> chunkProcessor)
+		private void ProcessChunks(Func<ushort, bool> chunkProcessor)
 		{
-			var chunk = ReadChunk();
-			while (!reader.IsEOF() && types.Contains(chunk.id))
+			do
 			{
-				chunkProcessor(chunk.id);
-
-				if (!reader.IsEOF())
+				var chunk = ReadChunk();
+				if (!chunkProcessor(chunk.id))
 				{
-					chunk = ReadChunk();
+					break;
 				}
-			}
+			} while (!reader.IsEOF());
 
 			if (!reader.IsEOF())
 			{
@@ -121,18 +122,22 @@ namespace OpenKenshi
 		private VertexElementInfo[] ReadVertexDeclaration()
 		{
 			var list = new List<VertexElementInfo>();
-			ProcessChunks(new[] { M_GEOMETRY_VERTEX_ELEMENT }, id => list.Add(ReadVertexDeclarationElement()));
+			ProcessChunks(id =>
+			{
+				if (id != M_GEOMETRY_VERTEX_ELEMENT) return false;
+				list.Add(ReadVertexDeclarationElement());
+				return true;
+			});
 			return list.ToArray();
 		}
 
-		private VertexBuffer ReadGeometry()
+		private Dictionary<int, VertexBuffer> ReadGeometry()
 		{
 			var vertexCount = reader.ReadInt32();
-			VertexBuffer result = null;
+			Dictionary<int, VertexBuffer> result = new Dictionary<int, VertexBuffer>();
 
 			VertexElementInfo[] elements = null;
-			ProcessChunks(new ushort[] { M_GEOMETRY_VERTEX_DECLARATION, M_GEOMETRY_VERTEX_BUFFER },
-				id =>
+			ProcessChunks(id =>
 				{
 					switch (id)
 					{
@@ -155,25 +160,45 @@ namespace OpenKenshi
 							}
 
 							var vd = elements.CreateVertexDeclaration(bindIndex);
-							var vertexBuffer = new VertexBuffer(Nrs.GraphicsDevice,	vd,	vertexCount, BufferUsage.None);
+							var vertexBuffer = new VertexBuffer(Nrs.GraphicsDevice, vd, vertexCount, BufferUsage.None);
 
 							var data = reader.ReadBytes(vertexCount * vd.VertexStride);
 							vertexBuffer.SetData(data);
+
+							result[bindIndex] = vertexBuffer;
 							break;
+						default:
+							return false;
 					}
+
+					return true;
 				}
 			);
 
 			return result;
 		}
 
-		private void ReadSubMesh()
+		private VertexBoneAssignment ReadBoneAssignment()
 		{
+			var result = new VertexBoneAssignment
+			{
+				VertexIndex = reader.ReadInt32(),
+				BoneIndex = reader.ReadUInt16(),
+				Weight = reader.ReadSingle()
+			};
+
+			return result;
+		}
+
+		private SubMesh ReadSubMesh()
+		{
+			var result = new SubMesh();
+
 			var materialName = ReadString();
 
 			// TODO: Set material
 
-			var useSharedVertices = ReadBool();
+			result.UseSharedVertices = ReadBool();
 			var indexCount = reader.ReadInt32();
 
 			bool areIndices32Bit = ReadBool();
@@ -182,8 +207,11 @@ namespace OpenKenshi
 				throw new Exception("32-bit indices arent supported");
 			}
 
-			var indices = ReadArray<UInt16>(indexCount);
-			if (!useSharedVertices)
+			var bytes = reader.ReadBytes(sizeof(ushort) * indexCount);
+			result.IndexBuffer = new IndexBuffer(Nrs.GraphicsDevice, IndexElementSize.SixteenBits, indexCount, BufferUsage.None);
+			result.IndexBuffer.SetData(bytes);
+
+			if (!result.UseSharedVertices)
 			{
 				var chunk = ReadChunk();
 				if (chunk.id != M_GEOMETRY)
@@ -191,28 +219,57 @@ namespace OpenKenshi
 					throw new Exception("Missing geometry data in mesh file");
 				}
 
-				var vertexBuffer = ReadGeometry();
+				result.VertexBuffers = ReadGeometry();
 			}
+
+			if (!reader.IsEOF())
+			{
+				ProcessChunks(id =>
+				{
+					switch(id)
+					{
+						case M_SUBMESH_OPERATION:
+							var s = reader.ReadUInt16();
+							result.PrimitiveType = s.ToPrimitiveType();
+							break;
+						case M_SUBMESH_BONE_ASSIGNMENT:
+							result.BoneAssignments.Add(ReadBoneAssignment());
+							break;
+						case M_SUBMESH_TEXTURE_ALIAS:
+							throw new Exception("texture aliases for SubMeshes are unsupported");
+						default:
+							return false;
+					}
+
+					return true;
+				});
+			}
+
+			return result;
 		}
 
-		private void ReadMesh()
+		private OgreMesh ReadMesh()
 		{
+			var result = new OgreMesh();
 			var skeletallyAnimated = ReadBool();
-			if (reader.IsEOF())
-			{
-				return;
-			}
 
-			var streamChunk = ReadChunk();
-			while (!reader.IsEOF())
+			ProcessChunks(id =>
 			{
-				switch (streamChunk.id)
+				switch(id)
 				{
 					case M_SUBMESH:
-						ReadSubMesh();
+						result.SubMeshes.Add(ReadSubMesh());
 						break;
+					case M_MESH_SKELETON_LINK:
+						break;
+					default:
+						return false;
 				}
-			}
+
+				return true;
+			});
+
+			return result;
 		}
 
 		private NursiaModel InternalLoad()
