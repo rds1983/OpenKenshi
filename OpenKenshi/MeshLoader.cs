@@ -1,18 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Runtime.InteropServices;
 using System.Text;
+using AssetManagementBase;
 using Microsoft.Xna.Framework.Graphics;
 using Nursia;
-using Nursia.Graphics3D.Modelling;
 
 namespace OpenKenshi
 {
-	public class MeshLoader
+	internal class MeshLoader : IAssetLoader<OgreMesh>
 	{
-		const ushort OTHER_ENDIAN_HEADER_STREAM_ID = 0x0010;
-		const ushort HEADER_STREAM_ID = 0x1000;
 		const ushort M_MESH = 0x3000;
 		const ushort M_SUBMESH = 0x4000;
 		const ushort M_SUBMESH_OPERATION = 0x4010;
@@ -25,64 +22,20 @@ namespace OpenKenshi
 		const ushort M_GEOMETRY_VERTEX_BUFFER_DATA = 0x5210;
 		const ushort M_MESH_SKELETON_LINK = 0x6000;
 
-		struct ChunkInfo
-		{
-			public ushort id;
-			public int length;
-
-			public ChunkInfo(ushort id, int length)
-			{
-				this.id = id;
-				this.length = length;
-			}
-		}
-
+		private AssetLoaderContext _context;
 		private Stream stream;
 		private BinaryReader reader;
-
-		private string ReadString()
-		{
-			var sb = new StringBuilder();
-			while (!reader.IsEOF())
-			{
-				var c = reader.ReadByte();
-				if (c == '\n')
-				{
-					break;
-				}
-
-				sb.Append((char)c);
-			}
-
-			return sb.ToString();
-		}
 
 		private bool ReadBool()
 		{
 			return stream.ReadByte() != 0;
 		}
 
-		private T[] ReadArray<T>(int size) where T : struct
-		{
-			var sizeOfT = Marshal.SizeOf<T>();
-
-			var result = new T[size];
-			var bytes = reader.ReadBytes(sizeOfT * size);
-
-			Buffer.BlockCopy(bytes, 0, result, 0, bytes.Length);
-			return result;
-		}
-
-		private ChunkInfo ReadChunk()
-		{
-			return new ChunkInfo(reader.ReadUInt16(), reader.ReadInt32());
-		}
-
 		private void ProcessChunks(Func<ushort, bool> chunkProcessor)
 		{
 			do
 			{
-				var chunk = ReadChunk();
+				var chunk = reader.ReadChunk();
 				if (!chunkProcessor(chunk.id))
 				{
 					break;
@@ -147,7 +100,7 @@ namespace OpenKenshi
 						case M_GEOMETRY_VERTEX_BUFFER:
 							var bindIndex = reader.ReadUInt16();
 							var vertexSize = reader.ReadUInt16();
-							var chunk = ReadChunk();
+							var chunk = reader.ReadChunk();
 
 							if (chunk.id != M_GEOMETRY_VERTEX_BUFFER_DATA)
 							{
@@ -194,7 +147,7 @@ namespace OpenKenshi
 		{
 			var result = new SubMesh();
 
-			var materialName = ReadString();
+			var materialName = reader.ReadOgreString();
 
 			// TODO: Set material
 
@@ -213,7 +166,7 @@ namespace OpenKenshi
 
 			if (!result.UseSharedVertices)
 			{
-				var chunk = ReadChunk();
+				var chunk = reader.ReadChunk();
 				if (chunk.id != M_GEOMETRY)
 				{
 					throw new Exception("Missing geometry data in mesh file");
@@ -226,7 +179,7 @@ namespace OpenKenshi
 			{
 				ProcessChunks(id =>
 				{
-					switch(id)
+					switch (id)
 					{
 						case M_SUBMESH_OPERATION:
 							var s = reader.ReadUInt16();
@@ -255,12 +208,13 @@ namespace OpenKenshi
 
 			ProcessChunks(id =>
 			{
-				switch(id)
+				switch (id)
 				{
 					case M_SUBMESH:
 						result.SubMeshes.Add(ReadSubMesh());
 						break;
 					case M_MESH_SKELETON_LINK:
+						var skeleton = _context.Load<Skeleton>(reader.ReadOgreString());
 						break;
 					default:
 						return false;
@@ -272,39 +226,16 @@ namespace OpenKenshi
 			return result;
 		}
 
-		private NursiaModel InternalLoad()
+		private OgreMesh InternalLoad()
 		{
-			// Determine endianess
-			var s = reader.ReadUInt16();
-			if (s == HEADER_STREAM_ID)
-			{
-			}
-			else if (s == OTHER_ENDIAN_HEADER_STREAM_ID)
-			{
-				throw new NotSupportedException("Endian flipping isn't supported.");
-			}
-			else
-			{
-				throw new Exception("Header chunk didn't match either endian: Corrupted stream?");
-			}
-
-			stream.Seek(-sizeof(short), SeekOrigin.Current);
-
-			// Read header
-			var header = reader.ReadUInt16();
-			if (header != 4096)
-			{
-				throw new Exception("File header not found");
-			}
-
 			// Read version
-			var version = ReadString();
+			var version = reader.ReadHeader();
 			if (version != "[MeshSerializer_v1.100]")
 			{
 				throw new Exception($"Version {version} isn't supported.");
 			}
 
-			var streamChunk = ReadChunk();
+			var streamChunk = reader.ReadChunk();
 			while (!reader.IsEOF())
 			{
 				switch (streamChunk.id)
@@ -314,26 +245,25 @@ namespace OpenKenshi
 						break;
 				}
 
-				streamChunk = ReadChunk();
+				streamChunk = reader.ReadChunk();
 			}
 
 			return null;
 		}
 
-
-		public NursiaModel Load(Stream stream)
+		public OgreMesh Load(AssetLoaderContext context, string name)
 		{
 			try
 			{
-				this.stream = stream;
+				_context = context;
+				stream = context.Open(name);
 				reader = new BinaryReader(stream);
 				return InternalLoad();
 			}
 			finally
 			{
 				reader.Dispose();
-				reader = null;
-				this.stream = null;
+				stream.Dispose();
 			}
 		}
 	}

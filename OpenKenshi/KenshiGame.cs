@@ -1,4 +1,5 @@
 ﻿using System.IO;
+using AssetManagementBase;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Nursia;
@@ -10,6 +11,7 @@ namespace OpenKenshi
 		private readonly GraphicsDeviceManager _graphics;
 		private SpriteBatch _spriteBatch;
 		private readonly FramesPerSecondCounter _fpsCounter = new FramesPerSecondCounter();
+		private AssetManager _assetManager;
 
 		public KenshiGame()
 		{
@@ -38,12 +40,9 @@ namespace OpenKenshi
 			// Nursia
 			Nrs.Game = this;
 
-			var loader = new MeshLoader();
-			//			using (var stream = File.OpenRead(@"D:\SteamLibrary\steamapps\common\Kenshi\data\meshes\katana1.mesh"))
-			using (var stream = File.OpenRead(@"D:\Temp\Sinbad\Sinbad.mesh"))
-			{
-				var model = loader.Load(stream);
-			}
+			_assetManager = new AssetManager(new FileAssetResolver(@"D:\Temp\Sinbad"));
+
+			var model = _assetManager.Load<OgreMesh>("Sinbad.mesh");
 		}
 
 		protected override void Update(GameTime gameTime)

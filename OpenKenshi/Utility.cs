@@ -1,12 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using Microsoft.Xna.Framework.Graphics;
 
 namespace OpenKenshi
 {
 	internal static class Utility
 	{
+		public const ushort OTHER_ENDIAN_HEADER_STREAM_ID = 0x0010;
+		public const ushort HEADER_STREAM_ID = 0x1000;
+
 		public static bool IsEOF(this BinaryReader reader)
 		{
 			return reader.PeekChar() == -1;
@@ -43,7 +47,7 @@ namespace OpenKenshi
 
 		public static PrimitiveType ToPrimitiveType(this ushort type)
 		{
-			switch(type)
+			switch (type)
 			{
 				case 1:
 					return PrimitiveType.PointListEXT;
@@ -127,7 +131,7 @@ namespace OpenKenshi
 
 		public static VertexElementUsage ToVertexElementUsage(this ushort usage)
 		{
-			switch(usage)
+			switch (usage)
 			{
 				case 1:
 					return VertexElementUsage.Position;
@@ -148,6 +152,48 @@ namespace OpenKenshi
 			}
 
 			throw new Exception($"Usage {usage} isnt supported");
+		}
+
+		public static string ReadOgreString(this BinaryReader reader)
+		{
+			var sb = new StringBuilder();
+			while (!reader.IsEOF())
+			{
+				var c = reader.ReadByte();
+				if (c == '\n')
+				{
+					break;
+				}
+
+				sb.Append((char)c);
+			}
+
+			return sb.ToString();
+		}
+
+		public static ChunkInfo ReadChunk(this BinaryReader reader)
+		{
+			return new ChunkInfo(reader.ReadUInt16(), reader.ReadInt32());
+		}
+
+		public static string ReadHeader(this BinaryReader reader)
+		{
+			// Determine endianess
+			var s = reader.ReadUInt16();
+			if (s == HEADER_STREAM_ID)
+			{
+			}
+			else if (s == OTHER_ENDIAN_HEADER_STREAM_ID)
+			{
+				throw new NotSupportedException("Endian flipping isn't supported.");
+			}
+			else
+			{
+				throw new Exception("Header chunk didn't match either endian: Corrupted stream?");
+			}
+
+			// Read version
+			return reader.ReadOgreString();
 		}
 	}
 }

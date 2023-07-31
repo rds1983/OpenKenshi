@@ -6,6 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\AssetManagementBase\src\AssetManagementBase.csproj" />
     <ProjectReference Include="..\..\Nursia\src\Nursia\Nursia.FNA.Core.csproj" />
   </ItemGroup>
 
