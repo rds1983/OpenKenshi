@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text;
 using AssetManagementBase;
 using Microsoft.Xna.Framework.Graphics;
 using Nursia;
@@ -21,6 +20,9 @@ namespace OpenKenshi
 		const ushort M_GEOMETRY_VERTEX_BUFFER = 0x5200;
 		const ushort M_GEOMETRY_VERTEX_BUFFER_DATA = 0x5210;
 		const ushort M_MESH_SKELETON_LINK = 0x6000;
+		const ushort M_MESH_BOUNDS = 0x9000;
+		const ushort M_SUBMESH_NAME_TABLE = 0xA000;
+		const ushort M_SUBMESH_NAME_TABLE_ELEMENT = 0xA100;
 
 		private AssetLoaderContext _context;
 		private Stream stream;
@@ -29,23 +31,6 @@ namespace OpenKenshi
 		private bool ReadBool()
 		{
 			return stream.ReadByte() != 0;
-		}
-
-		private void ProcessChunks(Func<ushort, bool> chunkProcessor)
-		{
-			do
-			{
-				var chunk = reader.ReadChunk();
-				if (!chunkProcessor(chunk.id))
-				{
-					break;
-				}
-			} while (!reader.IsEOF());
-
-			if (!reader.IsEOF())
-			{
-				stream.Seek(-(sizeof(ushort) + sizeof(int)), SeekOrigin.Current);
-			}
 		}
 
 		private VertexElementInfo ReadVertexDeclarationElement()
@@ -75,9 +60,9 @@ namespace OpenKenshi
 		private VertexElementInfo[] ReadVertexDeclaration()
 		{
 			var list = new List<VertexElementInfo>();
-			ProcessChunks(id =>
+			reader.ProcessChunks(chunk =>
 			{
-				if (id != M_GEOMETRY_VERTEX_ELEMENT) return false;
+				if (chunk.id != M_GEOMETRY_VERTEX_ELEMENT) return false;
 				list.Add(ReadVertexDeclarationElement());
 				return true;
 			});
@@ -90,9 +75,9 @@ namespace OpenKenshi
 			Dictionary<int, VertexBuffer> result = new Dictionary<int, VertexBuffer>();
 
 			VertexElementInfo[] elements = null;
-			ProcessChunks(id =>
+			reader.ProcessChunks(chunk =>
 				{
-					switch (id)
+					switch (chunk.id)
 					{
 						case M_GEOMETRY_VERTEX_DECLARATION:
 							elements = ReadVertexDeclaration();
@@ -100,9 +85,9 @@ namespace OpenKenshi
 						case M_GEOMETRY_VERTEX_BUFFER:
 							var bindIndex = reader.ReadUInt16();
 							var vertexSize = reader.ReadUInt16();
-							var chunk = reader.ReadChunk();
+							var chunk2 = reader.ReadChunk();
 
-							if (chunk.id != M_GEOMETRY_VERTEX_BUFFER_DATA)
+							if (chunk2.id != M_GEOMETRY_VERTEX_BUFFER_DATA)
 							{
 								throw new Exception("Can't find vertex buffer data area");
 							}
@@ -177,9 +162,9 @@ namespace OpenKenshi
 
 			if (!reader.IsEOF())
 			{
-				ProcessChunks(id =>
+				reader.ProcessChunks(chunk =>
 				{
-					switch (id)
+					switch (chunk.id)
 					{
 						case M_SUBMESH_OPERATION:
 							var s = reader.ReadUInt16();
@@ -201,20 +186,46 @@ namespace OpenKenshi
 			return result;
 		}
 
+		private Dictionary<int, string> ReadSubmeshNamesTable()
+		{
+			var result = new Dictionary<int, string>();
+
+			reader.ProcessChunks(chunk =>
+			{
+				if (chunk.id != M_SUBMESH_NAME_TABLE_ELEMENT)
+				{
+					return false;
+				}
+
+				result[reader.ReadUInt16()] = reader.ReadOgreString();
+
+				return true;
+			});
+
+			return result;
+		}
+
 		private OgreMesh ReadMesh()
 		{
 			var result = new OgreMesh();
 			var skeletallyAnimated = ReadBool();
 
-			ProcessChunks(id =>
+			reader.ProcessChunks(chunk =>
 			{
-				switch (id)
+				switch (chunk.id)
 				{
 					case M_SUBMESH:
 						result.SubMeshes.Add(ReadSubMesh());
 						break;
 					case M_MESH_SKELETON_LINK:
-						var skeleton = _context.Load<Skeleton>(reader.ReadOgreString());
+						result.Skeleton = _context.Load<Skeleton>(reader.ReadOgreString());
+						break;
+					case M_MESH_BOUNDS:
+						result.BoundingBox = reader.ReadBoundingBox();
+						result.Radius = reader.ReadSingle();
+						break;
+					case M_SUBMESH_NAME_TABLE:
+						var table = ReadSubmeshNamesTable();
 						break;
 					default:
 						return false;

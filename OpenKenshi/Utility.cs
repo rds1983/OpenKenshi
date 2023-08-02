@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
 namespace OpenKenshi
@@ -13,7 +14,16 @@ namespace OpenKenshi
 
 		public static bool IsEOF(this BinaryReader reader)
 		{
-			return reader.PeekChar() == -1;
+			try
+			{
+				var b = reader.ReadByte();
+				reader.BaseStream.Seek(-1, SeekOrigin.Current);
+				return false;
+			}
+			catch (EndOfStreamException)
+			{
+				return true;
+			}
 		}
 
 		public static VertexElementFormat ToVertexElementFormat(this ushort format)
@@ -154,6 +164,23 @@ namespace OpenKenshi
 			throw new Exception($"Usage {usage} isnt supported");
 		}
 
+		public static void ProcessChunks(this BinaryReader reader, Func<ChunkInfo, bool> chunkProcessor)
+		{
+			do
+			{
+				var chunk = reader.ReadChunk();
+				if (!chunkProcessor(chunk))
+				{
+					break;
+				}
+			} while (!reader.IsEOF());
+
+			if (!reader.IsEOF())
+			{
+				reader.BaseStream.Seek(-(sizeof(ushort) + sizeof(int)), SeekOrigin.Current);
+			}
+		}
+
 		public static string ReadOgreString(this BinaryReader reader)
 		{
 			var sb = new StringBuilder();
@@ -169,6 +196,21 @@ namespace OpenKenshi
 			}
 
 			return sb.ToString();
+		}
+
+		public static Vector3 ReadVector3(this BinaryReader reader)
+		{
+			return new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
+		}
+
+		public static Quaternion ReadQuaternion(this BinaryReader reader)
+		{
+			return new Quaternion(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
+		}
+
+		public static BoundingBox ReadBoundingBox(this BinaryReader reader)
+		{
+			return new BoundingBox(reader.ReadVector3(), reader.ReadVector3());
 		}
 
 		public static ChunkInfo ReadChunk(this BinaryReader reader)
