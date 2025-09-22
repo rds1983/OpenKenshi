@@ -23,6 +23,7 @@ namespace OpenKenshi
 		const ushort M_MESH_BOUNDS = 0x9000;
 		const ushort M_SUBMESH_NAME_TABLE = 0xA000;
 		const ushort M_SUBMESH_NAME_TABLE_ELEMENT = 0xA100;
+		const ushort M_EDGE_LISTS = 0xB000;
 
 		private AssetLoaderContext _context;
 		private Stream stream;
@@ -226,6 +227,8 @@ namespace OpenKenshi
 						break;
 					case M_SUBMESH_NAME_TABLE:
 						var table = ReadSubmeshNamesTable();
+						break;
+					case M_EDGE_LISTS:
 						break;
 					default:
 						return false;
